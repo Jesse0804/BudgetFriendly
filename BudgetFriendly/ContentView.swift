@@ -10,22 +10,35 @@ import SwiftUI
 struct ContentView: View {
     // Tracking transactions
     @State private var transactions: [Transaction] = []
+    @State private var showingAddTransaction = false
+    @State private var startingBalance: String = ""
     
-    var totalBalance: Double {
+    // Sum of all transaction amounts
+    var netTransactions: Double {
         transactions.reduce(0) { $0 + $1.amount }
+    }
+    
+    // Remaining balance = starting - spent
+    var remainingBalance: Double {
+        if let start = Double(startingBalance) {
+            return start + netTransactions
+        } else {
+            return 0.0
+        }
     }
     
     var body: some View {
         NavigationView {
             VStack {
-                // Balance Display
-                Text("💰 BudgetFriendly")
-                    .font(.largeTitle)
-                    .bold()
-                
-                Text("Balance: $\(totalBalance, specifier: "%.2f")")
-                    .font(.title)
-                    .padding(.bottom, 20)
+                // Starting Balance input
+                HStack {
+                    Text("Starting Balance: ")
+                    TextField("Enter Amount", text: $startingBalance)
+                        .keyboardType(.decimalPad)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .frame(width: 120)
+                }
+                .padding()
                 
                 // Transaction List
                 List(transactions) { transaction in
@@ -39,30 +52,36 @@ struct ContentView: View {
                         }
                         Spacer()
                         Text("$\(transaction.amount, specifier: "%.2f")")
-                            .foregroundColor(transaction.amount >= 0 ? .green : .red)
+                            .foregroundColor(transaction.amount < 0 ? .red : .green)
                     }
                 }
+                // Remaining balance at bottom
+                VStack{
+                    Divider()
+                    Text("Remaining Balance: $\(remainingBalance, specifier: "%.2f")")
+                        .font(.title2)
+                        .bold()
+                        .padding(.top, 5)
+                }
+                .padding(.bottom)
             }
-            .padding()
             .navigationTitle("Transactions")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: addDummyTransaction) {
+                    Button(action: {
+                        showingAddTransaction = true
+                    }) {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
                     }
                 }
             }
+            .sheet(isPresented: $showingAddTransaction) {
+                AddTransactionView { newTransaction in
+                    transactions.append(newTransaction)
+                }
+            }
         }
-    }
-    // Temporary function to add a text transaction
-    func addDummyTransaction() {
-        let newTransaction = Transaction(
-            description: "Test Item",
-            amount: Double.random(in: -50...100),
-            date: Date()
-        )
-        transactions.append(newTransaction)
     }
 }
 
