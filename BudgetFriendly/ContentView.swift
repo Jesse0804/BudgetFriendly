@@ -8,58 +8,80 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var transactions: [Transaction] = []
+    @StateObject private var payPeriodManager = PayPeriodManager()
     @State private var showingAddTransaction = false
-    @State private var startingBalance: String = ""
+    @State private var showingStartingBalanceSheet = false
     
-    // Sum of all transaction amounts
-    var netTransactions: Double {
-        transactions.reduce(0) { $0 + $1.amount }
+    // MARK: - Computed Properties
+    
+    private var netTransactions: Double {
+        payPeriodManager.currentPayPeriod?.transactions.reduce(0) { $0 + $1.amount } ?? 0
     }
     
-    // Remaining balance = starting - spent
-    var remainingBalance: Double {
-        if let start = Double(startingBalance) {
+    private var remainingBalance: Double {
+        if let payPeriod = payPeriodManager.currentPayPeriod,
+           let start = payPeriod.startingBalance {
             return start + netTransactions
         } else {
             return 0.0
         }
     }
     
+    private var transactions: [Transaction] {
+        payPeriodManager.currentPayPeriod?.transactions ?? []
+    }
+    
+    // MARK: - Body
+    
     var body: some View {
         TabView {
             NavigationView {
                 VStack {
-                    // Starting Balance input
-                    HStack {
-                        Text("Starting Balance: ")
-                        TextField("Enter Amount", text: $startingBalance)
-                            .keyboardType(.decimalPad)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                            .frame(width: 120)
+                    
+                    // Starting Balance Section
+                    if let startingBalance = payPeriodManager.currentPayPeriod?.startingBalance {
+                        HStack {
+                            Text("Starting Balance:")
+                                .font(.headline)
+                            Text("$\(startingBalance, specifier: "%.2f")")
+                                .font(.title3)
+                                .bold()
+                        }
+                        .padding()
+                    } else {
+                        Button("Set Starting Balance") {
+                            showingStartingBalanceSheet = true
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .padding()
                     }
-                    .padding()
                     
                     // Transaction List
-                    List(transactions) { transaction in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(transaction.category.rawValue)
-                                    .font(.headline)
-                                Text(transaction.description)
-                                    .font(.subheadline)
-                                Text(transaction.date, style: .date)
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
+                    if transactions.isEmpty {
+                        Spacer()
+                        Text("No transactions yet")
+                            .foregroundColor(.gray)
+                            .padding()
+                        Spacer()
+                    } else {
+                        List(transactions) { transaction in
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(transaction.description.isEmpty ? transaction.category.rawValue : transaction.description)
+                                        .font(.headline)
+                                    Text(transaction.date, style: .date)
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                }
+                                Spacer()
+                                Text("$\(transaction.amount, specifier: "%.2f")")
+                                    .foregroundColor(transaction.amount < 0 ? .red : .green)
                             }
-                            Spacer()
-                            Text("$\(transaction.amount, specifier: "%.2f")")
-                                .foregroundColor(transaction.amount < 0 ? .red : .green)
                         }
                     }
                     
-                    // Remaining balance at bottom
-                    VStack{
+                    // Remaining Balance at bottom
+                    VStack {
                         Divider()
                         Text("Remaining Balance: $\(remainingBalance, specifier: "%.2f")")
                             .font(.title2)
@@ -70,10 +92,16 @@ struct ContentView: View {
                 }
                 .navigationTitle("Transactions")
                 .toolbar {
+                    // Start New Pay Period button
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("New Pay Period") {
+                            payPeriodManager.startNewPayPeriod()
+                        }
+                    }
+                    
+                    // Add Transaction button
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: {
-                            showingAddTransaction = true
-                        }) {
+                        Button(action: { showingAddTransaction = true }) {
                             Image(systemName: "plus.circle.fill")
                                 .font(.title2)
                         }
@@ -81,8 +109,15 @@ struct ContentView: View {
                 }
                 .sheet(isPresented: $showingAddTransaction) {
                     AddTransactionView { newTransaction in
-                        transactions.append(newTransaction)
+                        payPeriodManager.addTransaction(newTransaction)
                     }
+                }
+                // Starting Balance Sheet
+                .sheet(isPresented: $showingStartingBalanceSheet) {
+                    StartingBalanceSheet(
+                        payPeriodManager: payPeriodManager,
+                        isPresented: $showingStartingBalanceSheet
+                    )
                 }
             }
             .tabItem {
