@@ -17,7 +17,6 @@ struct AnalyticsView: View {
                 // Pie Chart
                 CategoryPieChart(transactions: transactions)
                     .frame(height: 250)
-                
                 // Bar Chart
                 CategoryBarChart(transactions: transactions)
                     .frame(height: 250)
