@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum Category: String, CaseIterable, Identifiable {
+enum Category: String, CaseIterable, Identifiable, Codable {
     case groceries = "Groceries"
     case food = "Food"
     case gas = "Gas"
@@ -21,10 +21,18 @@ enum Category: String, CaseIterable, Identifiable {
     var id: String { self.rawValue }
 }
 
-struct Transaction: Identifiable {
-    let id = UUID()
+struct Transaction: Identifiable, Codable {
+    let id: UUID
     let description: String
     let amount: Double
     let date: Date
     let category: Category
+    
+    init(id: UUID = UUID(), description: String, amount: Double, date: Date, category: Category) {
+        self.id = id
+        self.description = description
+        self.amount = amount
+        self.date = date
+        self.category = category
+    }
 }
